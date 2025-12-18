@@ -72,3 +72,41 @@ class Policy(nn.Module):
         self.optimizer.zero_grad()
         objective.backward()
         self.optimizer.step()
+    
+    def load_from_file(self, path: str, device: str | None = None):
+        """
+        (made using gemini)
+        Loads the entire brain (Actor + Critic) from a .pth file.
+        
+        Args:
+            path: String path to the .pth file
+            device: 'cuda' or 'cpu'. If None, auto-detects.
+        """
+        # 1. Auto-detect device if not specified
+        if device is None:
+             device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        print(f"Attempting to load model from: {path}")
+        print(f"Target Device: {device}")
+
+        try:
+            # 2. Load the dictionary from the disk
+            # map_location is CRITICAL. It prevents the "CUDA out of memory" or "Device Mismatch" 
+            # errors if you move models between different computers.
+            state_dict = torch.load(path, map_location=torch.device(device))
+            
+            # 3. Apply the weights to the current model
+            # strict=True ensures that the file matches your architecture EXACTLY.
+            self.load_state_dict(state_dict, strict=True)
+            
+            print(f"SUCCESS: Model loaded. The Sigma is back online.")
+            
+        except FileNotFoundError:
+            print(f"ERROR: The file '{path}' does not exist. Starting from scratch?")
+        except RuntimeError as e:
+            print(f"CRITICAL ERROR: Architecture Mismatch.\n"
+                  f"The code structure (layers) does not match the saved file.\n"
+                  f"Did you change layer_size or hidden_amount?\n"
+                  f"Details: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")

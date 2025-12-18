@@ -13,6 +13,7 @@ import torch.utils.data as data_utils
 import matplotlib.pyplot as plt
 
 
+
 class Connect4Env(gym.Env):
     """
     Custom Environment that follows gym interface.
@@ -137,9 +138,18 @@ def render(board: np.ndarray) -> None:
         print("".join(f"{colors.get(cell, reset)}  {reset}" for cell in row))
     print(reset) # Ensure color is reset at the end of printing
 if __name__ == '__main__':
+    
+    from sigma_test import test_sigma_agent
+
     print(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+
+
     env = Connect4Env()
     ppo_policy = Policy(StateValue(env.observation_space.shape[0] * env.observation_space.shape[1], 3, 256), env.observation_space.shape[0] * env.observation_space.shape[1], env.action_space.n, 3, 256, ent_coef=0.03) # pyright: ignore[reportOptionalSubscript]
+
+    ppo_policy.load_from_file("connect4_policy_iter_600000.pth")
+
 
     total_observations = []
     total_actions = []
@@ -149,7 +159,7 @@ if __name__ == '__main__':
     objectives = []
     loss = []
 
-    for i in range(1_000_000):
+    for i in range(10000000):
         reward = 0 # Initialize reward for the game over message
         obs, info = env.reset()
         terminated = False
@@ -163,6 +173,7 @@ if __name__ == '__main__':
         steps = 0
         while not terminated and steps < 6*8: # a little bigger than the size of the board to let the ai expirament
             steps+=1
+            observations.append(obs.flatten()*env.current_player)
             with torch.no_grad():
                 # Get action probabilities from the policy
                 unmasked_probs = ppo_policy(torch.from_numpy(obs*env.current_player).float().flatten().unsqueeze(0))[0]
@@ -180,6 +191,7 @@ if __name__ == '__main__':
                 actions.append(action.item())
                 old_probs.append(dist.log_prob(action))
 
+
                 # mask for legal moves. A move is legal if the top row of the column is empty (0).
 
                 
@@ -188,7 +200,13 @@ if __name__ == '__main__':
             # print(f"Player {env.current_player} chooses column {action}")
 
             obs, _, terminated, truncated, info = env.step(int(action))
-            observations.append(obs.flatten()*env.current_player)
+            # print("-" * 20)
+            # printervations)
+            # print("actions:")
+            # print(actions[-3:])
+            # print("observations:")
+            # [render(o.reshape(6,7)) for o in observations[-1:]]
+
 
         # Create a discount list [1.0, 0.99, 0.98, ...] reversed
         gamma = 0.99
@@ -240,6 +258,7 @@ if __name__ == '__main__':
             print("last objectives:", objectives[-10:])
             print("loss:", loss[-1])
             print("last loss:", loss[-10:])
+            test_sigma_agent(Connect4Env, policy=ppo_policy, games=100)
 
 
         if i % 1000 == 0 and i > 0:
@@ -262,16 +281,21 @@ if __name__ == '__main__':
         # print("advantage:")
         # print(advantage)
         
-        if i > 0 and i % 10000 == 0:
+        if i > 0 and i % 100000 == 0:
             save_path = f"connect4_policy_iter_{i}.pth"
             torch.save(ppo_policy.state_dict(), save_path)
             print(f"Model state saved to {save_path}")
-        if i > 0 and i % 100000 == 0:
+        if i > 0 and i % 50000 == 0:
+            plt.figure() # Create a new figure
             plt.plot(objectives)
-            plt.title("Objective per 100 steps")
-            plt.xlabel("Steps")
+            plt.title(f"Objective at step {i}")
+            plt.xlabel("Steps (x100)")
             plt.ylabel("Objective")
-            plt.show()
+            
+            plt.savefig(f"training_graph_{i}.png")
+            
+            plt.close() # Close the figure to free up memory (Critical!)
+            print(f"Graph saved to training_graph_{i}.png")
 
 
     
