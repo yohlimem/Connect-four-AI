@@ -27,21 +27,12 @@ class StateValue(nn.Module):
                 layers_list
             )
         )
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
     
     def forward(self, state: torch.Tensor):
         return self.model(state)
     
     def loss(self, states: torch.Tensor, rewards: torch.Tensor):
         '''Calculates the loss of the value function'''
-        target_returns = torch.flip(torch.cumsum(torch.flip(rewards, dims=(0,)), dim=0), dims=(0,)).detach()
 
-        loss_val = torch.mean((self.forward(states).squeeze() - target_returns)**2)
-
+        loss_val = torch.mean((self.forward(states).squeeze() - rewards)**2)
         return loss_val
-
-    def optimizer_step(self, states: torch.Tensor, rewards: torch.Tensor):
-        loss = self.loss(states, rewards)
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()

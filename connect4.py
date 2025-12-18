@@ -7,6 +7,12 @@ import torch
 from policy import Policy
 from state_value import StateValue 
 
+from torch.distributions import Categorical
+import torch.utils.data as data_utils
+
+import matplotlib.pyplot as plt
+
+
 class Connect4Env(gym.Env):
     """
     Custom Environment that follows gym interface.
@@ -41,7 +47,8 @@ class Connect4Env(gym.Env):
         # 1. Check if move is valid (Column not full)
         if self.board[0][action] != 0:
             # Invalid move for the current player.
-            return self.board, -10, True, False, {"error": "Invalid Move", "winner": None}
+            self.switch_player()
+            return self.board, -0.1, False, False, {"error": "Invalid Move", "winner": None}
 
         # 2. Execute Move (Gravity)
         row: int = self.get_next_open_row(action)
@@ -50,7 +57,7 @@ class Connect4Env(gym.Env):
         # 3. Check Win Condition for the current player
         if self.check_win(self.current_player):
             reward: float = 10 if is_agent_turn else -10
-            return self.board, 10, True, False, {"info": f"Player {self.current_player} wins!", "winner": self.current_player}
+            return self.board, 1, True, False, {"info": f"Player {self.current_player} wins!", "winner": self.current_player}
 
         # 4. Check Draw
         if np.all(self.board != 0):
@@ -98,14 +105,51 @@ class Connect4Env(gym.Env):
         return False
 
     def render(self, mode: str = 'human') -> None:
-        print(self.board)
+        # ANSI escape codes for backgrounds
+        colors = {
+            0: "\x1b[40m",  # Black for empty
+            1: "\x1b[44m",  # Blue for Player 1
+            -1: "\x1b[41m", # Red for Player -1
+        }
+        reset = "\x1b[0m"
 
+        if self.board is None:
+            print("Board is not initialized.")
+            return
+
+        for row in self.board:
+            # For each cell, print the color, two spaces for visibility, then reset
+            print("".join(f"{colors.get(cell, reset)}  {reset}" for cell in row))
+        print(reset) # Ensure color is reset at the end of printing
+
+
+def render(board: np.ndarray) -> None:
+    # ANSI escape codes for backgrounds
+    colors = {
+        0: "\x1b[40m",  # Black for empty
+        1: "\x1b[44m",  # Blue for Player 1
+        -1: "\x1b[41m", # Red for Player -1
+    }
+    reset = "\x1b[0m"
+
+    for row in board:
+        # For each cell, print the color, two spaces for visibility, then reset
+        print("".join(f"{colors.get(cell, reset)}  {reset}" for cell in row))
+    print(reset) # Ensure color is reset at the end of printing
 if __name__ == '__main__':
-
+    print(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     env = Connect4Env()
-    ppo_policy = Policy(StateValue(env.observation_space.shape[0] * env.observation_space.shape[1], 3, 256), env.observation_space.shape[0] * env.observation_space.shape[1], env.action_space.n, 3, 256) # pyright: ignore[reportOptionalSubscript]
+    ppo_policy = Policy(StateValue(env.observation_space.shape[0] * env.observation_space.shape[1], 3, 256), env.observation_space.shape[0] * env.observation_space.shape[1], env.action_space.n, 3, 256, ent_coef=0.03) # pyright: ignore[reportOptionalSubscript]
 
-    for i in range(100000):
+    total_observations = []
+    total_actions = []
+    total_rewards = []
+    total_old_probs = []
+    total_advantages = []
+    objectives = []
+    loss = []
+
+    for i in range(1_000_000):
         reward = 0 # Initialize reward for the game over message
         obs, info = env.reset()
         terminated = False
@@ -115,26 +159,48 @@ if __name__ == '__main__':
         actions = []
         rewards = []
         old_probs = []
-        while not terminated:
-            observations.append(obs.flatten())
+
+        steps = 0
+        while not terminated and steps < 6*8: # a little bigger than the size of the board to let the ai expirament
+            steps+=1
             with torch.no_grad():
-                action_probs = ppo_policy(torch.from_numpy(obs*env.current_player).float().flatten().unsqueeze(0))[0] # the index of the best probabilty is also the action number
-                action = torch.argmax(action_probs).item() # the index of the best probabilty is also the action number
-                old_probs.append(action_probs)
-                actions.append(action)
+                # Get action probabilities from the policy
+                unmasked_probs = ppo_policy(torch.from_numpy(obs*env.current_player).float().flatten().unsqueeze(0))[0]
+
+                legal_moves_mask = torch.tensor([0.0 if env.board[0][c] == 0 else -(10e8) for c in range(env.cols)])
+
+
+                # Apply the mask to zero out probabilities for illegal moves
+                masked_probs = unmasked_probs + legal_moves_mask
+
+                dist = Categorical(logits=masked_probs)
+
+                action = dist.sample()
+
+                actions.append(action.item())
+                old_probs.append(dist.log_prob(action))
+
+                # mask for legal moves. A move is legal if the top row of the column is empty (0).
 
                 
 
             
             # print(f"Player {env.current_player} chooses column {action}")
 
-            obs, reward, terminated, truncated, info = env.step(int(action))
-            rewards.append(reward)
+            obs, _, terminated, truncated, info = env.step(int(action))
+            observations.append(obs.flatten()*env.current_player)
 
-            
-            # env.render()
-            # print(f"Reward: {reward}")
-            # print("-" * 20)
+        # Create a discount list [1.0, 0.99, 0.98, ...] reversed
+        gamma = 0.99
+        discounts = [gamma**i for i in range(len(observations))][::-1] 
+
+        if info["winner"] == 1:
+            rewards = [(1 * discounts[i]) if i % 2 == 0 else (-1 * discounts[i]) for i in range(len(observations))]
+        elif info["winner"] == -1:
+            rewards = [(-1 * discounts[i]) if i % 2 == 0 else (1 * discounts[i]) for i in range(len(observations))]
+        else:
+            rewards = [0] * len(observations)
+
 
         observations_np = np.array(observations, dtype="float32")
         old_probs_np = np.array(old_probs, dtype="float32")
@@ -145,26 +211,67 @@ if __name__ == '__main__':
         rewards_tensor = torch.tensor(rewards, dtype=torch.float32)
         advantage = ppo_policy.advantage(observations_tensor, rewards_tensor)
         
+        total_observations.append(observations_tensor)
+        total_actions.append(actions_tensor)
+        total_rewards.append(rewards_tensor)
+        total_old_probs.append(old_probs_tensor)
+        total_advantages.append(advantage)
 
-        # print("final board:")
-        # print(env.board)
 
         # print(observations)
         # print("actions:")
         # print(actions)
-        if i  % 100 == 0:
-            print(f"rewards at epoch {i}:")
-            print(rewards)
-            print(advantage)
+
+        if i % 100 == 0:
+            objectives.append(ppo_policy.objective(observations_tensor, actions_tensor, old_probs_tensor, rewards_tensor, advantage).detach().item())
+            loss.append(ppo_policy.value_function.loss(observations_tensor, rewards_tensor).detach().item())
+
+            
+
+        if i % 10000 == 0:
+            print("final board:")
+            for j in range(len(observations_np)):
+                render(observations_np[j].reshape(6,7))
+            env.render()
+            print(f"at epoch {i}:")
+            print("rewards:", rewards)
+            print("advantage:", advantage)
+            print("objective:", objectives[-1])
+            print("last objectives:", objectives[-10:])
+            print("loss:", loss[-1])
+            print("last loss:", loss[-10:])
+
+
+        if i % 1000 == 0 and i > 0:
+            dataset = data_utils.TensorDataset(torch.cat(total_observations), torch.cat(total_actions), torch.cat(total_old_probs), torch.cat(total_rewards), torch.cat(total_advantages))
+            loader = data_utils.DataLoader(dataset, batch_size=128, shuffle=True)
+            for _ in range(5):
+                for batch_obs, batch_action, batch_old_prob, batch_reward, batch_advantage in loader:
+                    ppo_policy.optimizer_step(batch_obs, batch_action, batch_old_prob, batch_reward, batch_advantage)
+                
+            total_observations = []
+            total_actions = []
+            total_rewards = []
+            total_old_probs = []
+            total_advantages = []
+        
         # print("old_probs:")
         # print(len(old_probs))
         # print(len(actions))
         # print(len(observations))
         # print("advantage:")
         # print(advantage)
-        for _ in range(1):
-            ppo_policy.optimizer_step(observations_tensor, actions_tensor, old_probs_tensor, rewards_tensor, advantage)
-            
+        
+        if i > 0 and i % 10000 == 0:
+            save_path = f"connect4_policy_iter_{i}.pth"
+            torch.save(ppo_policy.state_dict(), save_path)
+            print(f"Model state saved to {save_path}")
+        if i > 0 and i % 100000 == 0:
+            plt.plot(objectives)
+            plt.title("Objective per 100 steps")
+            plt.xlabel("Steps")
+            plt.ylabel("Objective")
+            plt.show()
 
 
     

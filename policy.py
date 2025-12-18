@@ -3,10 +3,12 @@ from torch import nn
 from torch import optim
 import torch
 from state_value import StateValue
+from torch.distributions import Categorical
 
 class Policy(nn.Module):
-    def __init__(self, value_function: StateValue, state_size: int, actions_size: int, hidden_amount: int =3, layer_size: int =256):
+    def __init__(self, value_function: StateValue, state_size: int, actions_size: int, hidden_amount: int =3, layer_size: int =256, ent_coef:float =0.0):
         super().__init__()
+        self.ent_coef = ent_coef
 
         '''
         state_size size is a number bigger than 1 that represents the amount of inputs for the network
@@ -21,7 +23,7 @@ class Policy(nn.Module):
             layers_list.append((f"hidden layer ({i})", nn.Linear(layer_size, layer_size)))
             layers_list.append((f"hidden layer ({i}) RELU", nn.ReLU()))
         layers_list.append(("output layer", nn.Linear(layer_size, actions_size)))
-        layers_list.append(("output layer sofmax", nn.Softmax(dim=1)))
+        # layers_list.append(("output layer sofmax", nn.Softmax(dim=1)))
 
         # create the model itself
         self.model = nn.Sequential(
@@ -33,34 +35,40 @@ class Policy(nn.Module):
         self.value_function = value_function
 
         
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.parameters(), lr=0.001)
     
     def forward(self, state: torch.Tensor):
-        return self.model(state)
-    
-    def objective(self, states: torch.Tensor, actions_taken_indices: torch.Tensor, old_probs: torch.Tensor, rewards: torch.Tensor, advantages: torch.Tensor):
-        new_probs = self.forward(states).gather(1, actions_taken_indices.long().unsqueeze(1)).squeeze() # uses the action indexes to find the correct probabilties
-        old_probs = old_probs.gather(1, actions_taken_indices.long().unsqueeze(1)).squeeze()
-
-        # print(new_probs)
-        # print(old_probs)
+        out = self.model(state)
+        return out    
+    def objective(self, states: torch.Tensor, actions_taken_indices: torch.Tensor, old_log_probs: torch.Tensor, rewards: torch.Tensor, advantages: torch.Tensor):
+        forward = self.forward(states)
+        new_probs = forward.gather(1, actions_taken_indices.long().unsqueeze(1)).squeeze() # uses the action indexes to find the correct probabilties
 
 
-        ratio = new_probs/old_probs
-        biggest_grad_variance = 0.1 # epsilon
+        dist = Categorical(logits=forward)
 
-        return -torch.mean(torch.min(ratio*advantages, torch.clip(ratio, 1-biggest_grad_variance, 1+biggest_grad_variance)*advantages)) # minus for maximizing in the grad direction instead of minimizing
+        new_log_probs = dist.log_prob(actions_taken_indices)
+        ratio = torch.exp(new_log_probs-old_log_probs)
+
+        entropy = dist.entropy().mean()
+
+        biggest_grad_variance = 0.2 # epsilon
+
+        ppo_objective = torch.mean(torch.min(ratio*advantages, torch.clip(ratio, 1-biggest_grad_variance, 1+biggest_grad_variance)*advantages))
+
+        value_loss = self.value_function.loss(states, rewards)
+
+
+        return -(ppo_objective + self.ent_coef*entropy - 0.5*value_loss) # minus for maximizing in the grad direction instead of minimizing
     
     def advantage(self, states: torch.Tensor, rewards: torch.Tensor):
         with torch.no_grad():
-            target_returns = torch.flip(torch.cumsum(torch.flip(rewards, dims=(0,)), dim=0), dims=(0,))
+            target_returns = rewards
             adv = target_returns - self.value_function(states).squeeze()
             return (adv - adv.mean()) / (adv.std() + 1e-8) # Standardization
         
-    def optimizer_step(self, states: torch.Tensor, actions_taken_indices: torch.Tensor, old_probs: torch.Tensor, rewards: torch.Tensor, advantages: torch.Tensor):
+    def optimizer_step(self, states: torch.Tensor, actions_taken_indices: torch.Tensor, old_probs: torch.Tensor, rewards: torch.Tensor, advantages: torch.Tensor):        
         objective = self.objective(states, actions_taken_indices, old_probs, rewards, advantages)
         self.optimizer.zero_grad()
         objective.backward()
         self.optimizer.step()
-        
-        self.value_function.optimizer_step(states, rewards)
