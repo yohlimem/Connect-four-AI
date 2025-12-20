@@ -7,19 +7,20 @@ from torch.distributions import Categorical
 from state_value import StateValue
 
 class Policy(nn.Module):
-    def __init__(self, value_function: StateValue, actions_size: int, 
+    def __init__(self, actions_size: int, 
                  input_channels: int = 1, board_height: int = 6, board_width: int = 7, 
                  conv_layers_channels: List[int] = [32, 64], kernel_size: int = 3, 
                  fc_layer_sizes: List[int] = [256], ent_coef: float = 0.0):
         super().__init__()
         self.ent_coef = ent_coef
-        self.value_function = value_function # Registered as submodule
+        # state value function for the critic
+        self.value_function = StateValue(input_channels, board_height, board_width, conv_layers_channels, kernel_size, fc_layer_sizes)
         
         self.input_channels = input_channels
         self.board_height = board_height
         self.board_width = board_width
 
-        # --- Actor CNN Backbone ---
+        # Actor CNN Backbone
         conv_net_layers = []
         in_channels = input_channels
         for out_channels in conv_layers_channels:
@@ -35,7 +36,7 @@ class Policy(nn.Module):
             dummy = torch.zeros(1, input_channels, board_height, board_width)
             conv_out_size = self.conv_net(dummy).shape[1]
 
-        # --- Actor Head ---
+        
         fc_net_layers = []
         in_features = conv_out_size
         for out_features in fc_layer_sizes:
