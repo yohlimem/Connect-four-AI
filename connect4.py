@@ -107,8 +107,9 @@ class Connect4Env(gym.Env):
 
     def step(self, action):
         # Quick check for invalid move
+        # print("hi")
         if self.board[0][action] != 0:
-            return self.board.copy(), -0.1, False, False, {"error": "Invalid", "winner": None}
+            return self.board.copy(), -0.1, False, False, {"error": "Invalid", "winner": 0}
 
         # Fast Row Lookup
         row = get_next_open_row_fast(self.board, action)
@@ -121,10 +122,10 @@ class Connect4Env(gym.Env):
 
         # Draw Check
         if self.board[0].all(): # If top row is full, board is full
-            return self.board.copy(), 0, True, False, {"winner": None}
+            return self.board.copy(), 0, True, False, {"winner": 0}
 
         self.current_player *= -1 # Fast switch (1 -> -1, -1 -> 1)
-        return self.board.copy(), 0, False, False, {}
+        return self.board.copy(), 0, False, False, {"winner": 0}
 
     def get_next_open_row(self, col: int) -> int:
         for r in range(self.rows-1, -1, -1):

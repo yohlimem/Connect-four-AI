@@ -56,6 +56,8 @@ class Policy(nn.Module):
             state = state.view(1, self.input_channels, self.board_height, self.board_width)
         elif state.dim() == 2:
             state = state.view(-1, self.input_channels, self.board_height, self.board_width)
+        elif state.dim() == 3:
+            state = state.unsqueeze(1)
             
         conv_out = self.conv_net(state)
         return self.fc_net(conv_out)
@@ -85,10 +87,12 @@ class Policy(nn.Module):
             # but usually forward() handles it.
             if states.dim() == 2:
                 states_reshaped = states.view(-1, self.input_channels, self.board_height, self.board_width)
+            elif states.dim() == 3:
+                states_reshaped = states.unsqueeze(1)
             else:
                 states_reshaped = states
 
-            values = self.value_function(states_reshaped).squeeze()
+            values = self.value_function(states_reshaped).detach().squeeze()
             adv = rewards - values
             return (adv - adv.mean()) / (adv.std() + 1e-8)
 
