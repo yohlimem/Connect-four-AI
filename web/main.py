@@ -47,7 +47,7 @@ def get_bot_move():
         raise Exception("Bot not loaded")
 
     # Preprocess board and convert to tensor
-    preprocessed_board = preprocess_board(game.board, current_player=-1)
+    preprocessed_board = preprocess_board(game.board, current_player=1)
     board_tensor = torch.tensor(preprocessed_board, dtype=torch.float32).unsqueeze(0).to(device)
 
     print(board_tensor.shape)
@@ -69,8 +69,8 @@ def get_bot_move():
 
     return action
 
-@app.post("/game/move")
-async def make_move(column: int):
+@app.post("/game/moveP")
+async def make_move_player(column: int):
     global game
     if game is None or game.is_done():
         return {"error": "Game is not active."}
@@ -82,8 +82,12 @@ async def make_move(column: int):
         
     _, _, done, _, info = game.step(column)
 
-    if done:
-        return {"board": game.board.tolist(), "winner": info.get("winner")}
+    return {"board": game.board.tolist(), "winner": info.get("winner") if done else None}
+@app.post("/game/moveB")
+async def make_move_bot():
+    global game
+    if game is None or game.is_done():
+        return {"error": "Game is not active."}
 
     # Bot's turn
     action = get_bot_move()

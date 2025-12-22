@@ -7,6 +7,7 @@ body {
 }
 
 #game-board {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(7, 80px);
     grid-template-rows: repeat(6, 80px);
@@ -26,11 +27,21 @@ body {
     cursor: pointer;
 }
 
-.cell.player1 {
+.token {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transition: transform 0.5s ease-in;
+}
+
+.cell.player1, .token.player1 {
     background-color: red;
 }
 
-.cell.player2 {
+.cell.player2, .token.player2 {
     background-color: yellow;
 }
 
