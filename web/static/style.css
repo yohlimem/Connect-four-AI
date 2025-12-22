@@ -3,7 +3,16 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #f0f0f0;
+}
+
+.background-color{
+    background-color: #003f8d;
+}
+
+#game-container {
+    display: flex;
+    align-items: center;
+    gap: 20px;
 }
 
 #game-board {
@@ -19,10 +28,36 @@ body {
     margin-top: 20px;
 }
 
+#eval-bar {
+    width: 40px;
+    height: 535px; /* 6*80px cells + 5*5px gaps + 2*5px padding + 2*10px border */
+    background-color: #323232;
+    border: 3px solid #333;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#eval-bar-player1 {
+    width: 100%;
+    background-color: rgb(255, 255, 255); /* Player 1 (bot) */
+    height: 50%; /* Initial state */
+    transition: height 0.5s ease-in-out;
+}
+
+#eval-bar-player2 {
+    width: 100%;
+    background-color: rgb(0, 0, 0); /* Player 2 (human) */
+    height: 50%; /* Initial state */
+    transition: height 0.5s ease-in-out;
+}
+
+
 .cell {
     width: 80px;
     height: 80px;
-    background-color: white;
+    /* background-color: #dee2e6; */
     border-radius: 50%;
     cursor: pointer;
 }
@@ -35,14 +70,20 @@ body {
     top: 0;
     left: 0;
     transition: transform 0.5s ease-in;
+
+
 }
 
 .cell.player1, .token.player1 {
-    background-color: red;
+    background-color: rgb(255, 255, 255);
+    border: 5px solid #d8dadb;
+    box-sizing: border-box;
 }
 
 .cell.player2, .token.player2 {
-    background-color: yellow;
+    background-color: rgb(0, 0, 0);
+    border: 5px solid rgb(37, 37, 37);
+    box-sizing: border-box;
 }
 
 #game-controls {

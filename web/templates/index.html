@@ -6,13 +6,21 @@
     <title>Connect 4</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="background-color">
     <h1>Connect 4</h1>
     <div id="game-controls">
         <button id="new-game">New Game</button>
+        <button id="toggle-starter">Bot Starts</button>
     </div>
-    <div id="game-board"></div>
+    <div id="game-container">
+        <div id="eval-bar">
+            <div id="eval-bar-player1"></div>
+            <div id="eval-bar-player2"></div>
+        </div>
+        <div id="game-board"></div>
+    </div>
     <div id="status"></div>
+    
 
     <script src="/static/script.js"></script>
 </body>
