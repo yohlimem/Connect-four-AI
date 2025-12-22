@@ -98,11 +98,13 @@ class Connect4Env(gym.Env):
         self.observation_space = spaces.Box(low=0, high=2, shape=(6, 7), dtype=np.int8)
         self.board: np.ndarray = np.zeros((self.rows, self.cols), dtype=np.int8)
         self.current_player: int = 1
+        self.done: bool = False
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None) -> Tuple[np.ndarray, Dict[str, Any]]:
         super().reset(seed=seed)
         self.board = np.zeros((self.rows, self.cols), dtype=np.int8)
         self.current_player = 1 
+        self.done = False
         return self.board, {}
 
     def step(self, action):
@@ -118,14 +120,19 @@ class Connect4Env(gym.Env):
         # Fast Incremental Win Check (Only checks the new piece)
         if check_win_fast(self.board, row, action, self.current_player):
             reward = 1.0 if self.current_player == 1 else -1.0
+            self.done = True
             return self.board.copy(), reward, True, False, {"winner": self.current_player}
 
         # Draw Check
         if self.board[0].all(): # If top row is full, board is full
+            self.done = True
             return self.board.copy(), 0, True, False, {"winner": 0}
 
         self.current_player *= -1 # Fast switch (1 -> -1, -1 -> 1)
         return self.board.copy(), 0, False, False, {"winner": 0}
+
+    def is_done(self) -> bool:
+        return self.done
 
     def get_next_open_row(self, col: int) -> int:
         for r in range(self.rows-1, -1, -1):
