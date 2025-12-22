@@ -1,6 +1,6 @@
 This is an RL project for my school. This project contains a training loop and a trained bot. you can train your own bot using the train_bot notebook or play against the already  made bot using the website
 
-# How to run?
+# How to install?
   1. ````git clone https://github.com/yohlimem/Connect-four-AI.git````
   2. ````cd ./Connect-four-AI````
   3. ````pip install -r requirements.txt````
