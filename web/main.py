@@ -63,8 +63,10 @@ def get_bot_move():
     logits[~valid_actions_mask] = -float('inf')
 
     # Get action from policy
-    dist = Categorical(logits=logits)
-    action = dist.sample().item()
+    # dist = Categorical(logits=logits)
+    # action = dist.sample().item()
+    action = logits.argmax().item()
+
     return action
 
 @app.post("/game/move")
