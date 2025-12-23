@@ -5,6 +5,7 @@ def preprocess_board(board, current_player=None):
     """
     Converts a (6, 7) board with [-1, 0, 1] 
     into a (2, 6, 7) tensor with [0, 1].
+    Given batches of boards it infers the current player.
     
     Channel 0: My Pieces
     Channel 1: Enemy Pieces
