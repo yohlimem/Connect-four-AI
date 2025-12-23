@@ -127,18 +127,18 @@ class AlphaBetaBot:
         """
         # Get valid locations first to save time
         valid_locations = self.get_valid_locations(board)
-        
+        if not valid_locations:
+            return 0 # Should not happen in a normal game
+
         # Move Ordering: Center first
         center = self.COLUMN_COUNT // 2
         valid_locations.sort(key=lambda x: abs(x - center))
         
         # Minimax with Alpha-Beta Pruning
-        # Alpha: Best option for maximizer found so far
-        # Beta: Best option for minimizer found so far
         col, minimax_score = self.minimax(board, self.depth, -np.inf, np.inf, True, piece)
         
         if col is None:
-            col = valid_locations[0] if valid_locations else 0
+            return random.choice(valid_locations)
             
         return col
 
@@ -155,9 +155,10 @@ class AlphaBetaBot:
         if depth == 0 or is_terminal:
             if is_terminal:
                 if winning_move_fast(board, piece):
-                    return (None, 100000000000000)
+                    return (None, 100000000000000 + depth)
                 elif winning_move_fast(board, -piece): # Opponent wins
-                    return (None, -100000000000000)
+                    # print("already lost :(")
+                    return (None, -100000000000000 - depth)
                 else: # Game is over, no more valid moves (Draw)
                     return (None, 0)
             else: # Depth is zero
@@ -165,7 +166,7 @@ class AlphaBetaBot:
 
         if maximizingPlayer:
             value = -np.inf
-            column = valid_locations[0]
+            column = random.choice(valid_locations)
             for col in valid_locations:
                 row = get_next_open_row_fast(board, col)
                 # No Copy Optimization
@@ -183,7 +184,7 @@ class AlphaBetaBot:
 
         else: # Minimizing Player
             value = np.inf
-            column = valid_locations[0]
+            column = random.choice(valid_locations)
             opponent_piece = -piece
             for col in valid_locations:
                 row = get_next_open_row_fast(board, col)
@@ -206,138 +207,3 @@ class AlphaBetaBot:
             if board[0][col] == 0:
                 valid_locations.append(col)
         return valid_locations
-
-class SolvedBot:
-    """
-    A high-performance bot using Bitboards and Negamax with Alpha-Beta pruning.
-    It attempts to calculate the 'perfect' move by searching deep into the game tree.
-    """
-    def __init__(self):
-        self.transposition_table = {}
-        # Center columns are usually best in Connect 4
-        self.column_order = [3, 2, 4, 1, 5, 0, 6]
-
-    def get_action(self, board: np.ndarray, piece: int) -> int:
-        # 1. Parse Board to Bitboard
-        # Connect4Env: Row 0 is top, Row 5 is bottom.
-        # Bitboard: Col-major. Col 0 (bits 0-5), Col 1 (bits 7-12)...
-        position = 0 # Current player's pieces
-        mask = 0     # All pieces
-        moves_played = 0
-        
-        for c in range(7):
-            for r in range(6):
-                if board[r][c] != 0:
-                    moves_played += 1
-                    # Map row r (0=top, 5=bottom) to bit index
-                    # We want bottom (5) to be LSB of the column
-                    idx = (5 - r) + c * 7
-                    mask |= (1 << idx)
-                    if board[r][c] == piece:
-                        position |= (1 << idx)
-
-        # 2. Determine Search Depth
-        # Bitboards are fast, so we can go deeper than standard bots.
-        if moves_played < 10: depth = 10
-        elif moves_played < 20: depth = 12
-        else: depth = 18 # Attempt to solve endgame
-
-        # 3. Root Search
-        best_score = -float('inf')
-        best_move = None
-        
-        valid_moves = [c for c in self.column_order if (mask & (1 << (5 + 7*c))) == 0]
-        
-        if not valid_moves: return 0
-
-        # Optimization: Check immediate wins first
-        for col in valid_moves:
-            move = (mask + (1 << (7*col))) & ~mask
-            if self.check_win(position | move):
-                return col
-
-        alpha = -float('inf')
-        beta = float('inf')
-        
-        for col in valid_moves:
-            move = (mask + (1 << (7*col))) & ~mask
-            new_pos = position | move
-            new_mask = mask | move
-            
-            # Opponent's turn: Opponent pos is (new_mask ^ new_pos)
-            score = -self.negamax(new_mask ^ new_pos, new_mask, depth - 1, -beta, -alpha)
-            
-            if score > best_score:
-                best_score = score
-                best_move = col
-            
-            alpha = max(alpha, score)
-            if alpha >= beta:
-                break
-        
-        return best_move if best_move is not None else valid_moves[0]
-
-    def negamax(self, position, mask, depth, alpha, beta):
-        key = position | (mask << 49)
-        if key in self.transposition_table:
-            entry = self.transposition_table[key]
-            if entry['depth'] >= depth:
-                return entry['value']
-
-        if depth == 0: 
-            return self.evaluate(position, mask)
-            
-        if mask == 0x1FBFFFFFFFFFF: return 0 # Draw (Board full)
-
-        max_val = -float('inf')
-        
-        for col in self.column_order:
-             if (mask & (1 << (5 + 7*col))) == 0:
-                move = (mask + (1 << (7*col))) & ~mask
-                new_pos = position | move
-                
-                if self.check_win(new_pos):
-                    val = 1000 + depth # Prefer faster wins
-                else:
-                    new_mask = mask | move
-                    val = -self.negamax(new_mask ^ new_pos, new_mask, depth - 1, -beta, -alpha)
-                
-                max_val = max(max_val, val)
-                alpha = max(alpha, val)
-                if alpha >= beta: break
-        
-        self.transposition_table[key] = {'value': max_val, 'depth': depth}
-        return max_val
-
-    def evaluate(self, position, mask):
-        """
-        Heuristic evaluation for non-terminal nodes.
-        Prioritizes center control, which is critical in Connect 4.
-        """
-        score = 0
-        
-        # Center Column (Col 3) bits: 21, 22, 23, 24, 25, 26
-        # 0x3F << 21
-        center_mask = 0x7E00000 
-        
-        my_center = bin(position & center_mask).count('1')
-        
-        opp_position = position ^ mask
-        opp_center = bin(opp_position & center_mask).count('1')
-        
-        score += (my_center * 3)
-        score -= (opp_center * 3)
-        
-        return score
-
-    def check_win(self, pos):
-        # Bitwise win check for all directions
-        m = pos & (pos >> 7);  # Horizontal
-        if m & (m >> 14): return True
-        m = pos & (pos >> 1);  # Vertical
-        if m & (m >> 2): return True
-        m = pos & (pos >> 6);  # Diagonal 1
-        if m & (m >> 12): return True
-        m = pos & (pos >> 8);  # Diagonal 2
-        if m & (m >> 16): return True
-        return False
