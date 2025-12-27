@@ -5,7 +5,7 @@ from connect4 import Connect4Env
 from policy import Policy
 from utils import preprocess_board
 from AlphaBetaBot import AlphaBetaBot
-
+from datetime import datetime as dt
 class BotPlayer:
     """
     A wrapper class for different bot types to provide a unified interface.
@@ -143,7 +143,7 @@ def display_results_matrix(results, bots):
     ax.set_title('Tournament Results (Player 1 vs Player 2)', fontsize=16, pad=20)
 
     # Save the figure
-    output_filename = "./Saves/graphs/tournament_results.png"
+    output_filename = f"./Saves/leaderboards/tournament_results_{dt.now().strftime('%d-%m-%Y_%H-%M-%S')}.png"
     plt.savefig(output_filename, bbox_inches='tight', dpi=150)
     print(f"\nResults matrix saved to {output_filename}")
     
@@ -151,21 +151,40 @@ def display_results_matrix(results, bots):
     # plt.show()
 def display_leaderboard(scores):
     """
-    Calculates total points and displays a sorted leaderboard.
+    Calculates total points, displays a sorted leaderboard, and saves it to a file.
     """
     leaderboard = []
     for bot_name, result in scores.items():
         points = result['wins'] * 3 + result['draws'] * 1
         leaderboard.append((bot_name, result['wins'], result['draws'], result['losses'], points))
 
-    # Sort by points descending
-    leaderboard.sort(key=lambda x: x[1], reverse=True)
+    # Sort by points descending, then by wins
+    leaderboard.sort(key=lambda x: (x[4], x[1]), reverse=True)
 
+    # --- Print to console ---
     print("\n\n--- Leaderboard ---")
-    print(f"{'Rank':<5} {'Bot':<40} {'Wins':<5} {'Draws':<6} {'Losses':<7} {'Points':<6}")
+    header = f"{'Rank':<5} {'Bot':<40} {'Wins':<5} {'Draws':<6} {'Losses':<7} {'Points':<6}"
+    print(header)
     print("-" * 75)
+    
+    leaderboard_str_console = []
     for i, (name, wins, draws, losses, points) in enumerate(leaderboard):
-        print(f"{i+1:<5} {name:<40} {wins:<5} {draws:<6} {losses:<7} {points:<6}")
+        line = f"{i+1:<5} {name:<40} {wins:<5} {draws:<6} {losses:<7} {points:<6}"
+        leaderboard_str_console.append(line)
+    
+    print('\n'.join(leaderboard_str_console))
+
+    # --- Save to file ---
+    try:
+        with open("Saves/leaderboards/leaderboard_history.txt", "a") as f:
+            f.write(f"\n\n--- Leaderboard generated at: {dt.now().strftime('%d-%m-%Y %H:%M:%S')} ---\n")
+            f.write(header + "\n")
+            f.write("-" * 75 + "\n")
+            for line in leaderboard_str_console:
+                f.write(line + "\n")
+        print("\nLeaderboard saved to leaderboard_history.txt")
+    except Exception as e:
+        print(f"\nError saving leaderboard: {e}")
 if __name__ == '__main__':
     # Add matplotlib to imports
     import matplotlib.pyplot as plt
@@ -174,8 +193,8 @@ if __name__ == '__main__':
     bots = []
 
     # Load AlphaBeta bot
-    ab_bot = AlphaBetaBot(depth=4) # Using a reasonable depth
-    bots.append(BotPlayer(ab_bot, "AlphaBetaBot (D4)", bot_type='ab'))
+    ab_bot = AlphaBetaBot(depth=7) # Using a reasonable depth
+    bots.append(BotPlayer(ab_bot, "AlphaBetaBot (D7)", bot_type='ab'))
 
     policy1 = Policy(7, input_channels=2, board_height=6, board_width=7, ent_coef=0.03, conv_layers_channels=[128, 64, 32], fc_layer_sizes=[512, 512, 256])
     policy1.load_from_file("This bot is super good large CNN.pth")
@@ -184,6 +203,7 @@ if __name__ == '__main__':
     # Load all saved neural network bots
     model_paths = glob.glob('*.pth')
     model_paths.extend(glob.glob('Saves/bots/*.pth')) # Also check in saves folder
+    model_paths.extend(glob.glob('Saves/SavedWorkBots/*.pth')) # Also check in saves folder
 
     for model_path in model_paths:
         try:

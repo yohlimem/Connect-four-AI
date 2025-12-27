@@ -20,6 +20,8 @@ game = Connect4Env()
 bot: Policy | None= None
 device = "cuda" if torch.cuda.is_available() else "cpu"
 bot_player_id = 1
+move_history = []
+current_move_index = -1
 
 @app.on_event("startup")
 def load_bot():
@@ -27,7 +29,8 @@ def load_bot():
     bot = Policy(7, input_channels=2, board_height=6, board_width=7, ent_coef=0.03, conv_layers_channels=[128, 64, 32], fc_layer_sizes=[512, 512, 256]).to(device)
 
     # bot.load_from_file("This bot is super good large CNN.pth", device=device)
-    bot.load_from_file(".\\Saves\\bots\\connect4_parallel_iter_11000.pth", device=device)
+    bot.load_from_file(".\\Saves\\SavedWorkBots\\best_currently.pth", device=device)
+    # bot.load_from_file(".\\Saves\\bots\\connect4_parallel_iter_11000.pth", device=device)
     bot.to(device)
     bot.eval()
 
@@ -37,17 +40,22 @@ async def read_root(request: Request):
 
 @app.post("/game")
 async def start_game(start: Literal['bot', 'human'] = 'bot'):
-    global game, bot_player_id
+    global game, bot_player_id, move_history, current_move_index
     game.reset()
+    move_history = []
+    current_move_index = -1
+    
     if start == 'bot':
         bot_player_id = 1
         # Bot's turn
         action = get_bot_move()
         game.step(action)
+        move_history.append(action)
+        current_move_index += 1
     else: # human starts
         bot_player_id = -1
     
-    return {"board": game.board.tolist()}
+    return {"board": game.board.tolist(), "move_history": move_history, "current_move_index": current_move_index}
 
 def get_bot_move():
     global game, bot, bot_player_id
@@ -55,7 +63,7 @@ def get_bot_move():
         raise Exception("Bot not loaded")
 
     # Preprocess board and convert to tensor
-    preprocessed_board = preprocess_board(game.board, current_player=bot_player_id)
+    preprocessed_board = preprocess_board(game.board, current_player=game.current_player)
     board_tensor = torch.tensor(preprocessed_board, dtype=torch.float32).unsqueeze(0).to(device)
 
     with torch.no_grad():
@@ -69,37 +77,67 @@ def get_bot_move():
 
     return action
 
+def handle_move(column: int):
+    global game, move_history, current_move_index
+
+    # If we are not at the end of the history, we are branching.
+    if current_move_index < len(move_history) - 1:
+        game.reset()
+        for i in range(current_move_index + 1):
+            game.step(move_history[i])
+        
+        move_history = move_history[:current_move_index + 1]
+
+
+    _, _, done, _, info = game.step(column)
+    move_history.append(column)
+    current_move_index += 1
+    
+    return {"board": game.board.tolist(), "winner": info.get("winner") if done else None, "move_history": move_history, "current_move_index": current_move_index}
+
+
 @app.post("/game/moveP")
 async def make_move_player(column: int):
     global game, bot_player_id
-    if game is None or game.is_done():
-        return {"error": "Game is not active."}
-    
-    if game.current_player == bot_player_id:
+    # Allow moves even if game is done to allow for branching
+    if game.current_player == bot_player_id and not game.is_done():
         return {"error": "Not your turn.", "board": game.board.tolist()}
 
-    if game.board[0][column] != 0:
+    if game.board[0][column] != 0 and not (current_move_index < len(move_history) -1):
         return {"error": "Invalid move: column is full.", "board": game.board.tolist()}
         
-    _, _, done, _, info = game.step(column)
-
-    return {"board": game.board.tolist(), "winner": info.get("winner") if done else None}
+    return handle_move(column)
 
 @app.post("/game/moveB")
 async def make_move_bot():
     global game, bot_player_id
-    if game is None or game.is_done():
-        return {"error": "Game is not active."}
-
-    if game.current_player != bot_player_id:
+    # Allow moves even if game is done to allow for branching
+    if game.current_player != bot_player_id and not game.is_done():
         return {"error": "Not bot's turn.", "board": game.board.tolist()}
 
     # Bot's turn
     action = get_bot_move()
-    _, _, done, _, info = game.step(action)
-
-    return {"board": game.board.tolist(), "winner": info.get("winner") if done else None}
+    return handle_move(action)
     
+@app.post("/game/navigate")
+async def navigate_history(direction: Literal['back', 'forward']):
+    global current_move_index, move_history, game
+    print("Navigating")
+
+    if direction == 'back' and current_move_index > -1:
+        current_move_index -= 1
+    elif direction == 'forward' and current_move_index < len(move_history) - 1:
+        current_move_index += 1
+    
+    game.reset()
+    winner = None
+    for i in range(current_move_index + 1):
+        _, _, done, _, info = game.step(move_history[i])
+        if done:
+            winner = info.get("winner")
+        
+    return {"board": game.board.tolist(), "move_history": move_history, "current_move_index": current_move_index, "winner": winner}
+
 @app.get("/game/eval")
 async def eval_position():
     global game, bot_player_id
@@ -120,4 +158,4 @@ async def eval_position():
 async def get_state():
     if game is None:
         return {"error": "Game not started"}
-    return {"board": game.board.tolist()}
+    return {"board": game.board.tolist(), "move_history": move_history, "current_move_index": current_move_index}

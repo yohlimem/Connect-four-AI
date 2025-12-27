@@ -2,13 +2,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const gameBoard = document.getElementById('game-board');
     const newGameButton = document.getElementById('new-game');
     const toggleStarterButton = document.getElementById('toggle-starter');
+    const backMoveButton = document.getElementById('back-move');
+    const forwardMoveButton = document.getElementById('forward-move');
     const statusDisplay = document.getElementById('status');
     const evalBarPlayer1 = document.getElementById('eval-bar-player1');
     const evalBarPlayer2 = document.getElementById('eval-bar-player2');
+    const moveList = document.getElementById('move-list');
 
     let board = [];
     let gameEnded = false;
-    let humanStarts = false; // Bot starts by default
+    let botStarts = true; // Bot starts by default
+    let playerColors = {1: 'Yellow', '-1': 'Red'};
 
     const updateEvalBar = (evaluation) => {
         // evaluation is from -1 to 1. P1's advantage.
@@ -35,7 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const updateBoard = (newBoard) => {
+    const updateBoard = (data) => {
+        const newBoard = data.board;
         board = newBoard;
         for (let row = 0; row < 6; row++) {
             for (let col = 0; col < 7; col++) {
@@ -48,17 +53,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+        if (data.move_history !== undefined) {
+            updateMoveHistory(data.move_history, data.current_move_index, botStarts);
+        }
+        if (data.winner) {
+            handleWinner(data.winner);
+        } else {
+            gameEnded = false;
+        }
     };
+
+    const updateMoveHistory = (moves, currentIndex, botStarts) => {
+        moveList.innerHTML = '';
+        moves.forEach((move, index) => {
+            const li = document.createElement('li');
+            const player = (index % 2 === 0) ? (botStarts ? 'Bot' : 'You') : (botStarts ? 'You' : 'Bot');
+            const playerColor = (index % 2 === 0) ? (botStarts ? playerColors[1] : playerColors[-1]) : (botStarts ? playerColors[-1] : playerColors[1]);
+            li.textContent = `${player} (${playerColor}): Column ${move + 1}`;
+            
+            if (index === currentIndex) {
+                li.classList.add('active');
+            }
+
+            li.addEventListener('click', async () => {
+                if (awaiting) return;
+                const newMoveIndex = index;
+                let diff = newMoveIndex - window.currentMoveIndex;
+                const direction = diff > 0 ? 'forward' : 'back';
+                diff = Math.abs(diff);
+
+                for (let i = 0; i < diff; i++) {
+                   await navigateHistory(direction, false)
+                }
+                await fetchEval();
+
+            });
+            moveList.appendChild(li);
+        });
+        window.currentMoveIndex = currentIndex;
+        moveList.scrollTop = moveList.scrollHeight;
+    }
 
     const animateDrop = (col, row, player) => {
         return new Promise(resolve => {
             const token = document.createElement('div');
             token.classList.add('token', player === 1 ? 'player1' : 'player2');
-            token.style.left = `${col * 85 + 5}px`; // 80px cell + 5px gap
+            token.style.left = `${col * 85 + 5}px`;
 
             gameBoard.appendChild(token);
 
-            const endTop = row * 85 + 5; // 80px cell + 5px gap
+            const endTop = row * 85 + 5;
             
             setTimeout(() => {
                 token.style.transform = `translateY(${endTop}px)`;
@@ -71,7 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const findAndAnimateChanges = async (oldBoard, newBoard) => {
+    const findAndAnimateChanges = async (oldBoard, data) => {
+        const newBoard = data.board;
         const changes = [];
         for (let r = 0; r < 6; r++) {
             for (let c = 0; c < 7; c++) {
@@ -80,11 +125,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+        
         const animationPromises = changes.map(change => animateDrop(change.col, change.row, change.player));
         await Promise.all(animationPromises);
-        updateBoard(newBoard);
+        updateBoard(data);
     };
-
+    
     const fetchEval = async () => {
         try {
             const evaluation_response = await fetch("/game/eval", {
@@ -101,78 +147,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     let awaiting = false;
+
+    const handleServerResponse = async (response) => {
+        const data = await response.json();
+        if (data.error) {
+            setStatus(data.error);
+            return {gameOver: false, error: true};
+        }
+
+        const oldBoard = JSON.parse(JSON.stringify(board));
+        await findAndAnimateChanges(oldBoard, data);
+        await fetchEval();
+
+        if (data.winner !== null && data.winner !== undefined && data.winner !== 0) {
+            handleWinner(data.winner);
+            return {gameOver: true, error: false};
+        }
+        return {gameOver: false, error: false};
+    };
+
     const handleCellClick = async (col) => {
-        if (awaiting){
+        if (awaiting || gameEnded){
             return;
         }
-        if (gameEnded) {
-            setStatus("Game over. Please start a new game.");
-            return;
-        }
-
-        let oldBoard = JSON.parse(JSON.stringify(board));
-
+        
+        awaiting = true;
+        
         try {
-            awaiting = true;
-            const response = await fetch(`/game/moveP?column=${col}`, {
-                method: 'POST',
-            });
-            const data = await response.json();
-
-            if (data.error) {
-                setStatus(data.error);
+            // Player's move
+            setStatus("Your turn");
+            const playerResponse = await fetch(`/game/moveP?column=${col}`, { method: 'POST' });
+            let { gameOver, error } = await handleServerResponse(playerResponse);
+            if (gameOver || error) {
+                awaiting = false;
+                return;
+            }
+            
+            // Bot's move
+            setStatus("Bot's turn");
+            const botResponse = await fetch(`/game/moveB`, { method: 'POST' });
+            ({ gameOver, error } = await handleServerResponse(botResponse));
+            if (gameOver || error) {
                 awaiting = false;
                 return;
             }
 
-            await findAndAnimateChanges(oldBoard, data.board);
-            oldBoard = JSON.parse(JSON.stringify(data.board));
-            
-            await fetchEval();
-            
-            if (data.winner !== null && data.winner !== undefined && data.winner !== 0) {
-                handleWinner(data.winner);
-                awaiting = false;
-                return;
-            } else {
-                setStatus("Bot turn");
-            }
-    
-
-            const response2 = await fetch(`/game/moveB`, {
-                method: 'POST',
-            });
-            const data2 = await response2.json();
-            
-            if (data2.error) {
-                setStatus(data2.error);
-                awaiting = false;
-                return;
-            }
-
-            await findAndAnimateChanges(oldBoard, data2.board);
-            oldBoard = JSON.parse(JSON.stringify(data2.board));
-
-            await fetchEval();
-
-            if (data2.winner !== null && data2.winner !== undefined) {
-                handleWinner(data2.winner);
-            } else {
-                setStatus("Your turn");
-            }
-
-            awaiting = false;
+            setStatus("Your turn");
 
         } catch (error) {
             console.error('Error making move:', error);
             setStatus('Error making move.');
+        } finally {
             awaiting = false;
         }
     };
 
     const handleWinner = (winner) => {
         gameEnded = true;
-        const botIsPlayer1 = !humanStarts;
 
         if (winner === 0) {
             setStatus("It's a draw!");
@@ -180,10 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if ((winner === 1 && botIsPlayer1) || (winner === -1 && !botIsPlayer1)) {
-            setStatus('Bot wins!');
-        } else {
+        if ((winner === 1 && !botStarts) || (winner === -1 && botStarts)) {
             setStatus('You win!');
+        } else {
+            setStatus('Bot wins!');
         }
         updateEvalBar(winner);
     }
@@ -195,35 +226,66 @@ document.addEventListener('DOMContentLoaded', () => {
     const startNewGame = async () => {
         gameEnded = false;
         awaiting = false;
-        updateEvalBar(0); // Reset bar to 50/50
+        updateEvalBar(0);
 
-        const startPlayer = humanStarts ? 'human' : 'bot';
-        setStatus(humanStarts ? "Your turn" : "Bot turn");
-
+        const startPlayer = botStarts ? 'bot' : 'human';
+        
         try {
             const response = await fetch(`/game?start=${startPlayer}`, {
                 method: 'POST',
             });
             const data = await response.json();
-            const oldBoard = board;
-            // await findAndAnimateChanges(oldBoard, data.board);
-            updateBoard(data.board);
+            updateBoard(data);
             await fetchEval();
-            setStatus("Your turn");
+            
+            if (botStarts) {
+                setStatus("Your turn");
+            } else {
+                setStatus("Your turn");
+            }
+
         } catch (error) {
             console.error('Error starting new game:', error);
             setStatus('Error starting new game.');
         }
     };
 
+    const navigateHistory = async (direction, do_animation = true) => {
+        if (awaiting) return;
+        awaiting = true;
+        try {
+            const response = await fetch(`/game/navigate?direction=${direction}`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+            if (data.error) {
+                setStatus(data.error);
+            }
+            else {
+                const oldBoard = JSON.parse(JSON.stringify(board));
+                // if (do_animation){
+                //     await findAndAnimateChanges(oldBoard, data);
+                // } else {
+                updateBoard(data);
+                // }
+                await fetchEval();
+            }
+        } catch (error) {
+            console.error('Error navigating history:', error);
+            setStatus('Error navigating history.');
+        }
+        awaiting = false;
+    };
+    console.log("amongus killyouse")
+
     newGameButton.addEventListener('click', startNewGame);
     toggleStarterButton.addEventListener('click', () => {
-        humanStarts = !humanStarts;
-        toggleStarterButton.textContent = humanStarts ? 'You Start' : 'Bot Starts';
+        botStarts = !botStarts;
+        toggleStarterButton.textContent = botStarts ? 'Bot Starts' : 'You Start';
         startNewGame();
     });
-
+    backMoveButton.addEventListener('click', () => navigateHistory('back', true));
+    forwardMoveButton.addEventListener('click', () => navigateHistory('forward', true));
     createBoard();
     startNewGame();
 });
-

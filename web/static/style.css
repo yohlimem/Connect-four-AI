@@ -3,10 +3,18 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    color: white;
 }
 
 .background-color{
     background-color: #003f8d;
+}
+
+#game-and-history-container {
+    display: flex;
+    gap: 30px;
+    margin-top: 20px;
+    align-items: flex-start;
 }
 
 #game-container {
@@ -25,7 +33,6 @@ body {
     border: 10px solid #005a8d;
     padding: 5px;
     border-radius: 10px;
-    margin-top: 20px;
 }
 
 #eval-bar {
@@ -97,10 +104,66 @@ body {
     padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #0077be;
+    color: white;
 }
+
+#back-move, #forward-move {
+    padding: 10px 15px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
 
 #status {
     margin-top: 20px;
     font-size: 20px;
     font-weight: bold;
+}
+
+#move-history-container {
+    width: 200px;
+    height: 535px;
+    background-color: #005a8d;
+    border-radius: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+#move-history-container h2 {
+    text-align: center;
+    margin-top: 0;
+    color: white;
+}
+
+#move-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    height: calc(100% - 40px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #0077be #005a8d;
+}
+
+#move-list li {
+    padding: 8px;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: #0077be;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+}
+
+#move-list li:hover {
+    background-color: #0099e0;
+}
+
+#move-list li.active {
+    background-color: #0099e0;
+    box-shadow: 0 0 5px white;
 }
