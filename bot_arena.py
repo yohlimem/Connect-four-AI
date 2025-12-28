@@ -156,20 +156,21 @@ def display_leaderboard(scores):
     leaderboard = []
     for bot_name, result in scores.items():
         points = result['wins'] * 3 + result['draws'] * 1
-        leaderboard.append((bot_name, result['wins'], result['draws'], result['losses'], points))
+        win_rate = result['wins'] / (result['wins'] + result['losses'])
+        leaderboard.append((bot_name, result['wins'], result['draws'], result['losses'], points, win_rate))
 
     # Sort by points descending, then by wins
     leaderboard.sort(key=lambda x: (x[4], x[1]), reverse=True)
 
     # --- Print to console ---
     print("\n\n--- Leaderboard ---")
-    header = f"{'Rank':<5} {'Bot':<40} {'Wins':<5} {'Draws':<6} {'Losses':<7} {'Points':<6}"
+    header = f"{'Rank':<5} {'Bot':<40} {'Wins':<5} {'Draws':<6} {'Losses':<7} {'Points':<6} {"Win Rate":<6}"
     print(header)
     print("-" * 75)
     
     leaderboard_str_console = []
-    for i, (name, wins, draws, losses, points) in enumerate(leaderboard):
-        line = f"{i+1:<5} {name:<40} {wins:<5} {draws:<6} {losses:<7} {points:<6}"
+    for i, (name, wins, draws, losses, points, win_rate) in enumerate(leaderboard):
+        line = f"{i+1:<5} {name:<40} {wins:<5} {draws:<6} {losses:<7} {points:<6} {win_rate:<6}"
         leaderboard_str_console.append(line)
     
     print('\n'.join(leaderboard_str_console))
@@ -193,8 +194,8 @@ if __name__ == '__main__':
     bots = []
 
     # Load AlphaBeta bot
-    ab_bot = AlphaBetaBot(depth=7) # Using a reasonable depth
-    bots.append(BotPlayer(ab_bot, "AlphaBetaBot (D7)", bot_type='ab'))
+    ab_bot = AlphaBetaBot(depth=4) # Using a reasonable depth
+    bots.append(BotPlayer(ab_bot, "AlphaBetaBot (D6)", bot_type='ab'))
 
     policy1 = Policy(7, input_channels=2, board_height=6, board_width=7, ent_coef=0.03, conv_layers_channels=[128, 64, 32], fc_layer_sizes=[512, 512, 256])
     policy1.load_from_file("This bot is super good large CNN.pth")
@@ -211,6 +212,8 @@ if __name__ == '__main__':
             policy.load_from_file(model_path)
             policy.eval() # Set to evaluation mode
             bot_name = model_path.replace('\\', '/').split('_')[-1]
+            if bot_name in [bot.name for bot in bots]:
+                bot_name += "_old"
             bots.append(BotPlayer(policy, bot_name, bot_type='nn'))
             print(f"Loaded bot: {bot_name}")
         except Exception as e:

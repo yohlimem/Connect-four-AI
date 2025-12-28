@@ -29,8 +29,8 @@ def load_bot():
     bot = Policy(7, input_channels=2, board_height=6, board_width=7, ent_coef=0.03, conv_layers_channels=[128, 64, 32], fc_layer_sizes=[512, 512, 256]).to(device)
 
     # bot.load_from_file("This bot is super good large CNN.pth", device=device)
-    bot.load_from_file(".\\Saves\\SavedWorkBots\\best_currently.pth", device=device)
-    # bot.load_from_file(".\\Saves\\bots\\connect4_parallel_iter_11000.pth", device=device)
+    bot.load_from_file(".\\Saves\\SavedWorkBots\\best_currently_even_more.pth", device=device)
+    # bot.load_from_file(".\\Saves\\bots\\beat_alpha_beta_bot.pth", device=device)
     bot.to(device)
     bot.eval()
 
