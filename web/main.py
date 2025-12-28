@@ -2,9 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-import numpy as np
 import torch
-from torch.distributions import Categorical
 from typing import Literal
 
 from connect4 import Connect4Env
