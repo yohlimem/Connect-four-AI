@@ -10,37 +10,21 @@ class SolvedBot:
         if not os.path.exists(self.exe_full_path):
             raise FileNotFoundError(f"Solver not found: {self.exe_full_path}")
 
-        # Start the process
-        # We use creationflags to ensure it doesn't pop up a new window on Windows
-        self.process = subprocess.Popen(
-            [solver_path, '-a', '-b', f'{solver_path.strip('/c4solver.exe')}/7x6.book'],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, # Merge errors into stdout so we see everything
-            text=True,
-            bufsize=1
-        )
-        
-        # Give the C++ process a split second to breathe/initialize
-        time.sleep(0.1) 
-
     def get_next_best_move(self, move_sequence: str) -> int:
-        print("self.process.poll()")
-        if self.process.poll() is not None:
-            return "Error: Solver process died."
-
-
         try:
-            print("sending output")
-            # Send input
-            stdout, _ = self.process.communicate(input=move_sequence + '\n', timeout=2)
+            process = subprocess.Popen(
+                [self.exe_full_path, '-a', '-b', f'{self.exe_full_path.strip("/c4solver.exe")}/7x6.book'],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, # Merge errors into stdout so we see everything
+                text=True,
+                bufsize=1
+            )
+            stdout, _ = process.communicate(input=move_sequence + '\n', timeout=5)
 
-            print("reading output")
-            print(stdout)
             # Read result
             output = stdout.strip()
             
-            print("checking if output is none")
             if not output:
                 return None
 
