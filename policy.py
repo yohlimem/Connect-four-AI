@@ -10,7 +10,7 @@ class Policy(nn.Module):
     def __init__(self, actions_size: int, 
                  input_channels: int = 1, board_height: int = 6, board_width: int = 7, 
                  conv_layers_channels: List[int] = [32, 64], kernel_size: int = 3, 
-                 fc_layer_sizes: List[int] = [256], ent_coef: float = 0.0):
+                 fc_layer_sizes: List[int] = [256], learning_rate: float = 0.001, ent_coef: float = 0.0):
         super().__init__()
         self.ent_coef = ent_coef
         # state value function for the critic
@@ -48,7 +48,7 @@ class Policy(nn.Module):
         self.fc_net = nn.Sequential(*fc_net_layers)
 
         # Optimizes both Policy and Value Function
-        self.optimizer = optim.Adam(self.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
 
     def forward(self, state: torch.Tensor):
         # Reshape flat input (Batch, 42) -> (Batch, 1, 6, 7) if needed
