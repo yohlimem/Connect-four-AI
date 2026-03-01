@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 import torch
 from typing import Literal
 
+from database import init_db, save_game
 from connect4 import Connect4Env
 from policy import Policy
 from utils import preprocess_board
@@ -22,15 +23,21 @@ move_history = []
 current_move_index = -1
 
 @app.on_event("startup")
-def load_bot():
+def load_bot_and_init_db():
+    """Load the bot and initialize the database."""
     global bot
+    init_db()
     bot = Policy(7, input_channels=2, board_height=6, board_width=7, ent_coef=0.03, conv_layers_channels=[128, 64, 32], fc_layer_sizes=[512, 512, 256]).to(device)
 
-    # bot.load_from_file("This bot is super good large CNN.pth", device=device)
-    bot.load_from_file(".\\Saves\\SavedWorkBots\\best_currently_even_more.pth", device=device)
-    # bot.load_from_file(".\\Saves\\bots\\beat_alpha_beta_bot.pth", device=device)
-    bot.to(device)
-    bot.eval()
+    try:
+        # bot.load_from_file("This bot is super good large CNN.pth", device=device)
+        bot.load_from_file("./best_currently_even_more.pth", device=device)
+        # bot.load_from_file(".\\Saves\\bots\\beat_alpha_beta_bot.pth", device=device)
+        bot.to(device)
+        bot.eval()
+    except FileNotFoundError:
+        print("Bot model not found. The bot will not be used.")
+        bot = None
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -76,7 +83,7 @@ def get_bot_move():
     return action
 
 def handle_move(column: int):
-    global game, move_history, current_move_index
+    global game, move_history, current_move_index, bot_player_id
 
     # If we are not at the end of the history, we are branching.
     if current_move_index < len(move_history) - 1:
@@ -91,7 +98,11 @@ def handle_move(column: int):
     move_history.append(column)
     current_move_index += 1
     
-    return {"board": game.board.tolist(), "winner": info.get("winner") if done else None, "move_history": move_history, "current_move_index": current_move_index}
+    winner = info.get("winner")
+    if done and winner is not None:
+        save_game(moves=move_history, winner=winner, bot_player_id=bot_player_id)
+    
+    return {"board": game.board.tolist(), "winner": winner if done else None, "move_history": move_history, "current_move_index": current_move_index}
 
 
 @app.post("/game/moveP")
