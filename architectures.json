@@ -1,0 +1,160 @@
+{
+    "Saves/bots/beat_alpha_beta_bot.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_2000.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_20000.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_20500.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_21000.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_21500.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_22000.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_22500.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_23000.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/bots\\connect4_parallel_iter_2500.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            128,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            512,
+            512,
+            256
+        ]
+    },
+    "Saves/unused\\Best RNN model.pth": {
+        "type": "rnn",
+        "hidden_amount": 6,
+        "layer_size": 256
+    },
+    "Saves/unused\\best small CNN model.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            32,
+            64
+        ],
+        "fc_layer_sizes": [
+            256
+        ]
+    },
+    "Saves/unused\\Really Good medium CNN.pth": {
+        "type": "cnn",
+        "conv_layers_channels": [
+            32,
+            64,
+            32
+        ],
+        "fc_layer_sizes": [
+            256,
+            256,
+            256
+        ]
+    }
+}
