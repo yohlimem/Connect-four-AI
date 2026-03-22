@@ -1,11 +1,13 @@
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True' 
 import glob
 import torch
-import numpy as np
 from connect4 import Connect4Env
 from policy import Policy
 from utils import preprocess_board
 from AlphaBetaBot import AlphaBetaBot
 from datetime import datetime as dt
+
 class BotPlayer:
     """
     A wrapper class for different bot types to provide a unified interface.
@@ -203,7 +205,7 @@ if __name__ == '__main__':
 
     # Load all saved neural network bots
     model_paths = glob.glob('*.pth')
-    model_paths.extend(glob.glob('Saves/bots/*.pth')) # Also check in saves folder
+    model_paths.extend(glob.glob('Saves/CNN/*.pth')) # Also check in saves folder
     model_paths.extend(glob.glob('Saves/SavedWorkBots/*.pth')) # Also check in saves folder
 
     for model_path in model_paths:
