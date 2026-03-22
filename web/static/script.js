@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let board = [];
     let gameEnded = false;
     let botStarts = true; // Bot starts by default
-    let playerColors = {1: 'Yellow', '-1': 'Red'};
+    let playerColors = {1: 'White', '-1': 'Black'};
 
     const updateEvalBar = (evaluation) => {
         // evaluation is from -1 to 1. P1's advantage.
