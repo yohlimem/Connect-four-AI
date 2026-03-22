@@ -94,7 +94,7 @@ class Policy(nn.Module):
 
             values = self.value_function(states_reshaped).detach().squeeze()
             adv = rewards - values
-            return (adv - adv.mean()) / (adv.std() + 1e-8)
+            return adv
 
     def optimizer_step(self, states: torch.Tensor, actions_taken: torch.Tensor, old_probs: torch.Tensor, rewards: torch.Tensor, advantages: torch.Tensor):        
         loss = self.objective(states, actions_taken, old_probs, rewards, advantages)
