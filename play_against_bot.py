@@ -1,7 +1,9 @@
 import uvicorn
 import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True' 
 
 if __name__ == "__main__":
+
     # Get the directory where this script is located
     script_dir = os.path.dirname(os.path.realpath(__file__))
     
