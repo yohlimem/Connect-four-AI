@@ -13,4 +13,4 @@ This is an RL project for my school. This project contains a training loop and a
   - You can open the notebook ````train_AI.ipynb```` and run it to train your own AI
   - You can do ````python .\play_against_bot.py```` which will open a server at ````http://0.0.0.0:8000```` just go to this url in your browser and play against the ai
   
-<img width="1010" height="1103" alt="image" src="https://github.com/user-attachments/assets/00d4dc9a-1b42-4511-a5a8-17c29ca515d2" />
+<img width="1430" height="1018" alt="Screenshot 2026-03-22 083415" src="https://github.com/user-attachments/assets/e3cfedbf-a390-4a9b-b607-4ef57c978f83" />
