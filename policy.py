@@ -78,8 +78,8 @@ class Policy(nn.Module):
         value_loss = self.value_function.loss(states, rewards)
 
         # Maximize Objective = Minimize Negative
-        return -(ppo_objective)
-
+        return -(ppo_objective + self.ent_coef * entropy - 0.5 * value_loss)
+        
     def advantage(self, states: torch.Tensor, rewards: torch.Tensor):
         with torch.no_grad():
             # StateValue must handle reshaping internally too or be called with correct shape
